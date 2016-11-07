@@ -22,6 +22,7 @@ namespace TranslationAssistant.TranslationServices.Core
     using System.Threading;
     using System.Threading.Tasks;
     using TranslatorService;
+    using Microsoft.Translator.Api;
 
     #endregion
 
@@ -37,18 +38,11 @@ namespace TranslationAssistant.TranslationServices.Core
             set { _CategoryID = value; }
         }
 
-        private static string _ClientID;
-        public static string ClientID
+        private static string _SubscriptionKey;
+        public static string SubscriptionKey
         {
-            get { return _ClientID; }
-            set { _ClientID = value; }
-        }
-
-        private static string _ClientSecret;
-        public static string ClientSecret
-        {
-            get { return _ClientSecret; }
-            set { _ClientSecret = value; }
+            get { return _SubscriptionKey; }
+            set { _SubscriptionKey = value; }
         }
 
         private static bool _CreateTMXOnTranslate = false;
@@ -62,6 +56,12 @@ namespace TranslationAssistant.TranslationServices.Core
 
         #endregion
 
+        #region Global variables
+
+        private static AzureAuthTokenSource authTokenSource;
+        
+        #endregion
+
         #region Public Methods and Operators
 
         /// <summary>
@@ -70,15 +70,28 @@ namespace TranslationAssistant.TranslationServices.Core
         /// <returns>true if ready, false if not</returns>
         public static bool IsTranslationServiceReady()
         {
-            Utils.ClientID = _ClientID;
-            Utils.ClientSecret = _ClientSecret;
+            if (_SubscriptionKey.Length < 10) return false;
             try
             {
-                string headerValue = "Bearer " + Utils.GetAccesToken();
+                AzureAuthTokenSource authTokenSource = new AzureAuthTokenSource(_SubscriptionKey);
+                string token = authTokenSource.GetAccessTokenAsync().GetAwaiter().GetResult();
             }
             catch { return false; }
             return true;
         }
+
+        async public static Task<bool> IsTranslationServiceReadyAsync()
+        {
+            if (_SubscriptionKey.Length < 10) return false;
+            try
+            {
+                AzureAuthTokenSource authTokenSource = new AzureAuthTokenSource(_SubscriptionKey);
+                string token = await authTokenSource.GetAccessTokenAsync();
+            }
+            catch { return false; }
+            return true;
+        }
+
 
         /// <summary>
         /// Test if a given category value is a valid category in the system
@@ -90,26 +103,25 @@ namespace TranslationAssistant.TranslationServices.Core
             if (category == string.Empty) return true;
             if (category == "") return true;
 
-            Utils.ClientID = _ClientID;
-            Utils.ClientSecret = _ClientSecret;
-
             bool returnvalue = true;
             //it may take a while until the category is loaded on server
             for (int i = 0; i < 3; i++)
             {
                 try
                 {
-                    string headerValue = "Bearer " + Utils.GetAccesToken();
+                    authTokenSource = new AzureAuthTokenSource(_SubscriptionKey);
+                    string token = authTokenSource.GetAccessTokenAsync().GetAwaiter().GetResult();
+
                     var bind = new BasicHttpBinding { Name = "BasicHttpBinding_LanguageService" };
                     var epa = new EndpointAddress("http://api.microsofttranslator.com/V2/soap.svc");
                     LanguageServiceClient client = new LanguageServiceClient(bind, epa);
-                    client.Translate(headerValue, "Test", "en", "fr", "text/plain", category);
+                    client.Translate(token, "Test", "en", "fr", "text/plain", category);
                     returnvalue = true;
                     break;
                 }
                 catch {
                     returnvalue = false;
-                    Thread.Sleep(1000);
+                    Thread.Sleep(200);
                     continue;
                 }
             }
@@ -123,15 +135,18 @@ namespace TranslationAssistant.TranslationServices.Core
         /// </summary>
         public static void Initialize()
         {
-            LoadCredentials();
+            _SubscriptionKey = Properties.Settings.Default.SubscriptionKey;
+            _CategoryID = Properties.Settings.Default.CategoryID;
             if (!IsTranslationServiceReady()) return;
+            authTokenSource = new AzureAuthTokenSource(_SubscriptionKey);
+            string token = authTokenSource.GetAccessTokenAsync().GetAwaiter().GetResult();
+
             var bind = new BasicHttpBinding { Name = "BasicHttpBinding_LanguageService" };
             var epa = new EndpointAddress("http://api.microsofttranslator.com/V2/soap.svc");
             LanguageServiceClient client = new LanguageServiceClient(bind, epa);
-            string headerValue = "Bearer " + Utils.GetAccesToken();
 
-            string[] languages = client.GetLanguagesForTranslate(headerValue);
-            string[] languagenames = client.GetLanguageNames(headerValue, "en", languages, false);
+            string[] languages = client.GetLanguagesForTranslate(token);
+            string[] languagenames = client.GetLanguageNames(token, "en", languages, false);
             for (int i = 0; i < languages.Length; i++)
             {
                 if (!AvailableLanguages.ContainsKey(languages[i]))
@@ -142,24 +157,13 @@ namespace TranslationAssistant.TranslationServices.Core
             client.Close();
         }
 
-        /// <summary>
-        /// Loads credentials from settings file.
-        /// Doesn't need to be public, because it is called during Initialize();
-        /// </summary>
-        private static void LoadCredentials()
-        {
-            _ClientID = Properties.Settings.Default.ClientID;
-            _ClientSecret = Properties.Settings.Default.ClientSecret;
-            _CategoryID = Properties.Settings.Default.CategoryID;
-        }
 
         /// <summary>
         /// Saves credentials ClientID, clientSecret and categoryID to the personalized settings file.
         /// </summary>
         public static void SaveCredentials()
         {
-            Properties.Settings.Default.ClientID = _ClientID;
-            Properties.Settings.Default.ClientSecret = _ClientSecret;
+            Properties.Settings.Default.SubscriptionKey = _SubscriptionKey;
             Properties.Settings.Default.CategoryID = _CategoryID;
             Properties.Settings.Default.Save();
         }
@@ -243,9 +247,7 @@ namespace TranslationAssistant.TranslationServices.Core
 
             toCode = LanguageNameToLanguageCode(to);
 
-            Utils.ClientID = _ClientID;
-            Utils.ClientSecret = _ClientSecret;
-            string headerValue = "Bearer " + Utils.GetAccesToken();
+            string token = authTokenSource.GetAccessTokenAsync().GetAwaiter().GetResult();
             var bind = new BasicHttpBinding
             {
                 Name = "BasicHttpBinding_LanguageService",
@@ -273,7 +275,7 @@ namespace TranslationAssistant.TranslationServices.Core
             try
             {
                 var translatedTexts2 = client.TranslateArray2(
-                    headerValue,
+                    token,
                     texts,
                     fromCode,
                     toCode,
@@ -285,7 +287,7 @@ namespace TranslationAssistant.TranslationServices.Core
             catch   //try again forcing English as source language
             {
                 var translatedTexts2 = client.TranslateArray2(
-                    headerValue,
+                    token,
                     texts,
                     "en",
                     toCode,
@@ -339,9 +341,7 @@ namespace TranslationAssistant.TranslationServices.Core
 
             toCode = LanguageNameToLanguageCode(to);
 
-            Utils.ClientID = _ClientID;
-            Utils.ClientSecret = _ClientSecret;
-            string headerValue = "Bearer " + Utils.GetAccesToken();
+            string token = authTokenSource.GetAccessTokenAsync().GetAwaiter().GetResult();
             var bind = new BasicHttpBinding
                            {
                                Name = "BasicHttpBinding_LanguageService",
@@ -370,7 +370,7 @@ namespace TranslationAssistant.TranslationServices.Core
             try
             {
                 var translatedTexts = client.TranslateArray(
-                    headerValue,
+                    token,
                     texts,
                     fromCode,
                     toCode,
@@ -382,7 +382,7 @@ namespace TranslationAssistant.TranslationServices.Core
             catch   //try again forcing English as source language
             {
                 var translatedTexts = client.TranslateArray(
-                    headerValue,
+                    token,
                     texts,
                     "en",
                     toCode,
@@ -434,10 +434,8 @@ namespace TranslationAssistant.TranslationServices.Core
 
             var epa = new EndpointAddress("https://api.microsofttranslator.com/V2/soap.svc");
             TranslatorService.LanguageServiceClient client = new LanguageServiceClient(bind, epa);
-            Utils.ClientID = _ClientID;
-            Utils.ClientSecret = _ClientSecret;
-            string headerValue = "Bearer " + Utils.GetAccesToken();
-            return client.BreakSentences(headerValue, text, languageID);
+            string token = authTokenSource.GetAccessTokenAsync().GetAwaiter().GetResult();
+            return client.BreakSentences(token, text, languageID);
         }
 
         /// <summary>
@@ -448,6 +446,7 @@ namespace TranslationAssistant.TranslationServices.Core
         /// <returns>An array of integers representing the lengths of the sentences. The length of the array is the number of sentences, and the values are the length of each sentence.</returns>
         async public static Task<int[]> BreakSentencesAsync(string text, string languageID)
         {
+            Task<string> t_token = authTokenSource.GetAccessTokenAsync();
             var bind = new BasicHttpBinding
             {
                 Name = "BasicHttpBinding_LanguageService",
@@ -463,13 +462,10 @@ namespace TranslationAssistant.TranslationServices.Core
 
             var epa = new EndpointAddress("https://api.microsofttranslator.com/V2/soap.svc");
             TranslatorService.LanguageServiceClient client = new LanguageServiceClient(bind, epa);
-            Utils.ClientID = _ClientID;
-            Utils.ClientSecret = _ClientSecret;
-            string headerValue = "Bearer " + Utils.GetAccesToken();
             int[] result = { 0 };
             try
             {
-                Task<int[]> BSTask = client.BreakSentencesAsync(headerValue, text, languageID);
+                Task<int[]> BSTask = client.BreakSentencesAsync(await t_token, text, languageID);
                 result = await BSTask;
             }
             catch
@@ -477,7 +473,7 @@ namespace TranslationAssistant.TranslationServices.Core
                 for (int i = 1; i <= 10; i++)
                 {
                     Thread.Sleep(5000 * i);
-                    Task<int[]> BSTask = client.BreakSentencesAsync(headerValue, text, languageID);
+                    Task<int[]> BSTask = client.BreakSentencesAsync(await t_token, text, languageID);
                     result = await BSTask;
                 }
             }
@@ -512,19 +508,17 @@ namespace TranslationAssistant.TranslationServices.Core
 
             var epa = new EndpointAddress("https://api.microsofttranslator.com/V2/soap.svc");
             TranslatorService.LanguageServiceClient client = new LanguageServiceClient(bind, epa);
-            Utils.ClientID = _ClientID;
-            Utils.ClientSecret = _ClientSecret;
-            string headerValue = "Bearer " + Utils.GetAccesToken();
+            string token = authTokenSource.GetAccessTokenAsync().GetAwaiter().GetResult();
             try
             {
-                client.AddTranslation(headerValue, originalText, translatedText, from, to, rating, "text/plain", _CategoryID, user, string.Empty);
+                client.AddTranslation(token, originalText, translatedText, from, to, rating, "text/plain", _CategoryID, user, string.Empty);
             }
             catch
             {
                 for (int i = 0; i < 3; i++)
                 {
                     Thread.Sleep(500);
-                    client.AddTranslation(headerValue, originalText, translatedText, from, to, rating, "text/plain", _CategoryID, user, string.Empty);
+                    client.AddTranslation(token, originalText, translatedText, from, to, rating, "text/plain", _CategoryID, user, string.Empty);
                 }
             }
             return;
@@ -559,12 +553,10 @@ namespace TranslationAssistant.TranslationServices.Core
 
             var epa = new EndpointAddress("https://api.microsofttranslator.com/v2/beta/ctfreporting.svc");
             CtfReportingService.CtfReportingServiceClient client = new CtfReportingService.CtfReportingServiceClient(bind, epa);
-            Utils.ClientID = _ClientID;
-            Utils.ClientSecret = _ClientSecret;
-            string headerValue = "Bearer " + Utils.GetAccesToken();
+            string token = authTokenSource.GetAccessTokenAsync().GetAwaiter().GetResult();
             CtfReportingService.UserTranslation[] usertranslations = new CtfReportingService.UserTranslation[count];
 
-            usertranslations = client.GetUserTranslations(headerValue, string.Empty, fromlanguage, tolanguage, 0, 10, string.Empty, string.Empty, DateTime.MinValue, DateTime.MaxValue, skip, count, true);
+            usertranslations = client.GetUserTranslations(token, string.Empty, fromlanguage, tolanguage, 0, 10, string.Empty, string.Empty, DateTime.MinValue, DateTime.MaxValue, skip, count, true);
 
             UserTranslation[] usertranslationsreturn = new UserTranslation[count];
             usertranslationsreturn.Initialize();

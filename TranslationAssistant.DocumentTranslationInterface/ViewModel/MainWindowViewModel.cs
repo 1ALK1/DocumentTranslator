@@ -51,7 +51,7 @@ namespace TranslationAssistant.DocumentTranslationInterface.ViewModel
             TranslationAssistant.DocumentTranslationInterface.Properties.DocumentTranslator.Default.Upgrade();
             TranslationAssistant.DocumentTranslationInterface.Properties.DocumentTranslator.Default.Reload();
             this.StatusText = string.Empty;
-            ShowStatus();
+            //ShowStatus();
         }
 
         #endregion

@@ -22,6 +22,7 @@ namespace TranslationAssistant.DocumentTranslationInterface.ViewModel
     using TranslationAssistant.Business;
     using TranslationAssistant.Business.Model;
     using TranslationAssistant.DocumentTranslationInterface.Common;
+    using System.Threading.Tasks;
 
     /// <summary>
     ///     The account view model.
@@ -33,12 +34,7 @@ namespace TranslationAssistant.DocumentTranslationInterface.ViewModel
         /// <summary>
         ///     The application id.
         /// </summary>
-        private string clientID;
-
-        /// <summary>
-        ///     The client secret.
-        /// </summary>
-        private string clientSecret;
+        private string subscriptionKey;
 
         /// <summary>
         ///     The category identifier.
@@ -67,37 +63,20 @@ namespace TranslationAssistant.DocumentTranslationInterface.ViewModel
         /// <summary>
         ///     Gets or sets the application id.
         /// </summary>
-        public string ClientID
+        public string SubscriptionKey
         {
             get
             {
-                return this.clientID;
+                return subscriptionKey;
             }
 
             set
             {
-                this.clientID = value;
-                this.NotifyPropertyChanged("ClientID");
+                subscriptionKey = value;
+                NotifyPropertyChanged("ClientID");
             }
         }
-
-        /// <summary>
-        ///     Gets or sets the client secret.
-        /// </summary>
-        public string ClientSecret
-        {
-            get
-            {
-                return this.clientSecret;
-            }
-
-            set
-            {
-                this.clientSecret = value;
-                this.NotifyPropertyChanged("ClientSecret");
-            }
-        }
-
+        
         public string CategoryID
         {
             get
@@ -107,8 +86,8 @@ namespace TranslationAssistant.DocumentTranslationInterface.ViewModel
 
             set
             {
-                this.categoryID = value;
-                this.NotifyPropertyChanged("CategoryID");
+                categoryID = value;
+                NotifyPropertyChanged("CategoryID");
             }
         }
 
@@ -120,7 +99,7 @@ namespace TranslationAssistant.DocumentTranslationInterface.ViewModel
             get
             {
                 return this.saveAccountSettingsClickCommand
-                       ?? (this.saveAccountSettingsClickCommand = new DelegateCommand(this.SaveAccountClick));
+                       ?? (saveAccountSettingsClickCommand = new DelegateCommand(this.SaveAccountClick));
             }
         }
 
@@ -131,13 +110,13 @@ namespace TranslationAssistant.DocumentTranslationInterface.ViewModel
         {
             get
             {
-                return this.statusText;
+                return statusText;
             }
 
             set
             {
-                this.statusText = value;
-                this.NotifyPropertyChanged("StatusText");
+                statusText = value;
+                NotifyPropertyChanged("StatusText");
             }
         }
 
@@ -151,24 +130,23 @@ namespace TranslationAssistant.DocumentTranslationInterface.ViewModel
         {
             //Initialize in order to load the credentials.
             TranslationServices.Core.TranslationServiceFacade.Initialize();
-            this.clientID = TranslationServices.Core.TranslationServiceFacade.ClientID;
-            this.clientSecret = TranslationServices.Core.TranslationServiceFacade.ClientSecret;
-            this.categoryID = TranslationServices.Core.TranslationServiceFacade.CategoryID;
+            subscriptionKey = TranslationServices.Core.TranslationServiceFacade.SubscriptionKey;
+            categoryID = TranslationServices.Core.TranslationServiceFacade.CategoryID;
         }
 
         /// <summary>
         ///     Saves the account settings to the settings file for next use.
         /// </summary>
-        private void SaveAccountClick()
+        async private void SaveAccountClick()
         {
             //Set the Account values and save.
-            TranslationServices.Core.TranslationServiceFacade.ClientID = this.clientID;
-            TranslationServices.Core.TranslationServiceFacade.ClientSecret = this.clientSecret;
-            TranslationServices.Core.TranslationServiceFacade.CategoryID = this.categoryID;
+            TranslationServices.Core.TranslationServiceFacade.SubscriptionKey = subscriptionKey;
+            Task<bool> t_isready = TranslationServices.Core.TranslationServiceFacade.IsTranslationServiceReadyAsync();
+            TranslationServices.Core.TranslationServiceFacade.CategoryID = categoryID;
             TranslationServices.Core.TranslationServiceFacade.SaveCredentials();
 
-            if (TranslationServices.Core.TranslationServiceFacade.IsTranslationServiceReady()) { 
-                this.StatusText = "Settings saved. Ready to translate.";
+            if (await t_isready) {
+                StatusText = "Settings saved. Ready to translate.";
                 NotifyPropertyChanged("SettingsSaved");
                 //Need to initialize with new credentials in order to get the language list.
                 TranslationServices.Core.TranslationServiceFacade.Initialize();
@@ -176,12 +154,12 @@ namespace TranslationAssistant.DocumentTranslationInterface.ViewModel
             }
             else
             {
-                this.StatusText = "Client ID or client secret are invalid.\r\nPlease visit the Azure Marketplace to obtain a subscription.";
+                StatusText = "The subscription key is invalid.\r\nPlease visit https://portal.azure.com to obtain a subscription and define a key for Microsoft Translator - Text.";
                 SingletonEventAggregator.Instance.GetEvent<AccountValidationEvent>().Publish(false);
             }
             if (!TranslationServices.Core.TranslationServiceFacade.IsCategoryValid(this.categoryID))
             {
-                this.StatusText = "Category is invalid.\r\nPlease visit https://hub.microsofttranslator.com to determine a valid category ID, leave empty, or use one of the standard categories.";
+                StatusText = "Category is invalid.\r\nPlease visit https://hub.microsofttranslator.com to determine a valid category ID, leave empty, or use one of the standard categories.";
                 SingletonEventAggregator.Instance.GetEvent<AccountValidationEvent>().Publish(false);
             }
           

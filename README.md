@@ -1,4 +1,5 @@
 # Microsoft Document Translator
+-- Modified for Azure Authentication --
 The Microsoft Document Translator translates Microsoft Office, plain text, HTML, PDF files and SRT caption files, from any of the 50 languages supported by the Microsoft Translator web service, to any other of these 50 languages.
 Document Translator uses the customer's own credentials and subscription to perform the service, and will make use of any translation stored in the Collaborative Translations Framework,
 as well as making use of a custom MT system, trained via the Microsoft Translator Hub (https://hub.microsofttranslator.com).

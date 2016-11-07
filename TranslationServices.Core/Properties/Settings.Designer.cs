@@ -26,24 +26,12 @@ namespace TranslationAssistant.TranslationServices.Core.Properties {
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("")]
-        public string ClientID {
+        public string SubscriptionKey {
             get {
-                return ((string)(this["ClientID"]));
+                return ((string)(this["SubscriptionKey"]));
             }
             set {
-                this["ClientID"] = value;
-            }
-        }
-        
-        [global::System.Configuration.UserScopedSettingAttribute()]
-        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("")]
-        public string ClientSecret {
-            get {
-                return ((string)(this["ClientSecret"]));
-            }
-            set {
-                this["ClientSecret"] = value;
+                this["SubscriptionKey"] = value;
             }
         }
         

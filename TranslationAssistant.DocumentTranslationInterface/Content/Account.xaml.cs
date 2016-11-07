@@ -13,7 +13,7 @@
 
 namespace TranslationAssistant.DocumentTranslationInterface.Content
 {
-    #region
+    #region Usings
 
     using System.Diagnostics;
     using System.Windows.Controls;

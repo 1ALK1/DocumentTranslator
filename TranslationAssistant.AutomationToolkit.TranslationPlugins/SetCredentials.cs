@@ -30,17 +30,12 @@ namespace TranslationAssistant.AutomationToolkit.TranslationPlugins
         #region Fields
 
         /// <summary>
-        ///     The source document.
+        ///     The Key of the Azure subscription.
         /// </summary>
-        private readonly Argument clientID;
+        private readonly Argument subscriptionKey;
 
         /// <summary>
-        ///     The source language.
-        /// </summary>
-        private readonly Argument clientSecret;
-
-        /// <summary>
-        ///     The target language.
+        ///     The category ID to use in translation.
         /// </summary>
         private readonly Argument categoryID;
 
@@ -57,15 +52,10 @@ namespace TranslationAssistant.AutomationToolkit.TranslationPlugins
         public SetCredentials(ConsoleLogger Logger)
             : base(Logger)
         {
-            this.clientID = new Argument(
-                "clientID",
+            this.subscriptionKey = new Argument(
+                "subscriptionKey",
                 true,
-                "Client ID to use for the calls to the Translator service.");
-
-            this.clientSecret = new Argument( 
-                "clientSecret",
-                true,
-                "Client secret to use for the calls to the Translator service.");
+                "Subscription Key to use for the calls to the Translator service.");
 
             this.categoryID = new Argument(
                 "categoryID",
@@ -73,7 +63,7 @@ namespace TranslationAssistant.AutomationToolkit.TranslationPlugins
                 "Translator Hub category ID to use for calls to the translator service.");
 
             this.Arguments = new ArgumentList(
-                new[] { this.clientID, this.clientSecret, this.categoryID },
+                new[] { this.subscriptionKey, this.categoryID },
                 Logger);
         }
 
@@ -117,8 +107,7 @@ namespace TranslationAssistant.AutomationToolkit.TranslationPlugins
         {
             try
             {
-                TranslationServiceFacade.ClientID = this.clientID.ValueString;
-                TranslationServiceFacade.ClientSecret = this.clientSecret.ValueString;
+                TranslationServiceFacade.SubscriptionKey = this.subscriptionKey.ValueString;
                 TranslationServiceFacade.CategoryID = this.categoryID.ValueString;
                 TranslationServiceFacade.SaveCredentials();
             }
